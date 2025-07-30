@@ -1,5 +1,5 @@
 import { NextAuthOptions } from "next-auth";
-import CredentialsProvider  from "next-auth/providers/credentials";
+import CredentialsProvider from "next-auth/providers/credentials";
 import User from "@/models/User";
 import { IUser } from "@/models/User";
 import bcrypt from "bcryptjs";
@@ -8,7 +8,7 @@ import dbConnect from "./dbConnect";
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-        id: "credentials",
+      id: "credentials",
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "text" },
@@ -27,32 +27,31 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (!user) {
-            throw new Error("No user found with these credentials")
+            throw new Error("No user found with these credentials");
           }
 
           if (!user.isVerified) {
-            throw new Error("Please verify first")
+            throw new Error("Please verify first");
           }
 
           const isCorrectPassword = bcrypt.compare(password, user.password);
           if (!isCorrectPassword) {
-            throw new Error("Incorrect password")
+            throw new Error("Incorrect password");
           }
           return user;
-
         } catch (error) {
           throw error;
         }
       },
     }),
   ],
-  callbacks:{
+  callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id; 
+        token.id = user.id;
         token._id = user.id;
         token.isVerified = user.isVerified;
-        token.image = user.image; 
+        token.image = user.image;
         token.username = user.username;
         token.role = user.role;
       }
@@ -73,10 +72,10 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: '/sign-in',
+    signIn: "/sign-in",
   },
   session: {
-    strategy: "jwt"
+    strategy: "jwt",
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
