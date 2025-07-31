@@ -28,38 +28,39 @@ export async function GET() {
 
 // add new post
 export async function POST(request: Request) {
-  // 1. Get Session: Check if the user is authenticated
+
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || !session.user._id) {
-    return NextResponse.json({
-      success: false,
-      message: 'Unauthorized: You must be logged in to create a post.',
-    }, { status: 401 });
-  }
+  // if (!session || !session.user || !session.user._id) {
+  //   return NextResponse.json({
+  //     success: false,
+  //     message: 'Unauthorized: You must be logged in to create a post.',
+  //   }, { status: 401 });
+  // }
 
   await dbConnect();
 
   try {
-    const { title, content, tags, image } = await request.json(); // Destructure required fields
+    const { title, content, tags, image } = await request.json();
 
     // Basic input validation
-    if (!title || !content || !image) {
+    if (!title || !content) {
       return NextResponse.json({
         success: false,
         message: 'Title, content, and image are required to create a post.',
       }, { status: 400 });
     }
 
-    const authorId = session.user._id;
+    // const authorId = session.user._id;
+    const authorId = "6889cc0ea392e6c9ad687453";
 
     const newPost = new Post({
       authorId: authorId,
       title,
       content,
       tags: tags || [], // Ensure tags is an array
-      image,
-      likes: 0, // Default value, though schema also handles this
+      fileLink: image,
+       // Default value, though schema also handles this
     });
 
     await newPost.save();

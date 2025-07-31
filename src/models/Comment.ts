@@ -2,24 +2,29 @@ import mongoose, { Schema } from "mongoose";
 
 export interface Icomment {
   _id?: mongoose.Types.ObjectId;
-  post_id: string;
-  user_id: string;
+  postId: string;
+  authorId: string;
   comment: string;
+  likes:[mongoose.Types.ObjectId],
   createdAt: Date;
 }
 
 const commentSchema = new Schema({
-  post_id: {
+  postId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Post",
     required: true,
   },
-  user_id: {
+  authorId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
   },
   comment: { type: String, required: true },
+  likes: [{
+      type: Schema.Types.ObjectId,
+      ref: "User",
+  }],
   createdAt: { type: Date, default: Date.now },
 });
 

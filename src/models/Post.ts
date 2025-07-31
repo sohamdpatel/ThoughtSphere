@@ -9,8 +9,8 @@ export interface IPost {
   slug: string;
   tags: string[];
   fileLink: string;
-  likes: number;
-  latestComment: mongoose.Types.ObjectId;
+  likes: [mongoose.Types.ObjectId];
+  latestComment?: mongoose.Types.ObjectId;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -33,9 +33,9 @@ const postSchema = new Schema(
     },
     slug: {
       type: String,
-      required: true,
+      required: [true, "slug is required"],
       unique: true,
-      trim: true
+      trim: true,
     },
     tags: [String],
     fileLink: {
@@ -44,7 +44,7 @@ const postSchema = new Schema(
     },
     likes: [{
       type: Schema.Types.ObjectId,
-      ref: "User",// This is the user who liked the post
+      ref: "User",
     }],
     latestComment: {
       type: Schema.Types.ObjectId,
@@ -54,8 +54,15 @@ const postSchema = new Schema(
   { timestamps: true }
 );
 
-postSchema.pre("save", function (next) {
-  this.slug = `${slugify(this.title)}_by_${this.authorId}`;
+postSchema.pre("validate", function (next) {
+  if (this.isNew) {
+    console.log("this is when title modified and validate")
+    
+    this.slug = `${slugify(this.title,{lower: true,})}_by_${this.authorId}`;
+    console.log("this is slug", this.slug);
+    
+  }
+  next();
 });
 
 const Post =
