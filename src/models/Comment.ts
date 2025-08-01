@@ -5,8 +5,9 @@ export interface Icomment {
   postId: string;
   authorId: string;
   comment: string;
-  likes:[mongoose.Types.ObjectId],
-  createdAt: Date;
+  likes?: number;
+  replies?: [mongoose.Types.ObjectId];
+  createdAt?: Date;
 }
 
 const commentSchema = new Schema({
@@ -21,14 +22,27 @@ const commentSchema = new Schema({
     required: true,
   },
   comment: { type: String, required: true },
-  likes: [{
-      type: Schema.Types.ObjectId,
-      ref: "User",
-  }],
+  likes: {
+    type: Number,
+    default: 0,
+  },
+  parentComment: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Comment",
+    default: null,
+  },
+  replyCount: { type: Number, default: 0 }, 
   createdAt: { type: Date, default: Date.now },
 });
 
+commentSchema.index({ post: 1, parentComment: 1, createdAt: -1 });
+commentSchema.index({ parentComment: 1 });
 
-const Comment = mongoose.models?.Comment || mongoose.model<Icomment>("User", commentSchema);
+const Comment =
+  mongoose.models?.Comment ||
+  mongoose.model<Icomment>("Comment", commentSchema);
 
 export default Comment;
+
+
+

@@ -8,8 +8,10 @@ export interface IPost {
   content: string;
   slug: string;
   tags: string[];
-  fileLink: string;
-  likes: [mongoose.Types.ObjectId];
+  fileLink?: string;
+  likesCount?: number;
+  commentsCount?: number;
+  latestLikes?: [mongoose.Types.ObjectId];
   latestComment?: mongoose.Types.ObjectId;
   createdAt?: Date;
   updatedAt?: Date;
@@ -42,9 +44,17 @@ const postSchema = new Schema(
       type: String,
       required: true,
     },
-    likes: [{
+    likesCount: {
+      type: Number,
+      default: 0,
+    },
+    commentsCount: {
+      type: Number,
+      default: 0,
+    },
+    latestLikes: [{
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Like",
     }],
     latestComment: {
       type: Schema.Types.ObjectId,
