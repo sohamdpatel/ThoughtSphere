@@ -22,7 +22,7 @@ const commentSchema = new Schema({
     required: true,
   },
   comment: { type: String, required: true },
-  likes: {
+  likes : {
     type: Number,
     default: 0,
   },

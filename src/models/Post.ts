@@ -12,7 +12,6 @@ export interface IPost {
   likesCount?: number;
   commentsCount?: number;
   latestLikes?: [mongoose.Types.ObjectId];
-  latestComment?: mongoose.Types.ObjectId;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -56,10 +55,6 @@ const postSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Like",
     }],
-    latestComment: {
-      type: Schema.Types.ObjectId,
-      ref: "Comment",
-    },
   },
   { timestamps: true }
 );

@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/authOption";
 import { IPost } from "@/models/Post";
 import Post from "@/models/Post";
 import mongoose from "mongoose";
-
+import Like from "@/models/Like";
 export async function POST(
   request: NextRequest,
   { params }: { params: { slug: string } }
@@ -46,11 +46,23 @@ export async function POST(
     );
     // TODO add current.user._id
 
-    await Comment.create({ postId: post._id, authorId: currentUserId, comment });
-
-    post.commentsCount += 1;
-    post.latestComment = comment._id;
-    await post.save();
+    const newComment = new Comment({
+      postId: post._id,
+      authorId: currentUserId,
+      comment: comment,
+    });
+    
+    // 2. Perform both the comment creation and the post update atomically.
+    await Promise.all([
+      newComment.save(), // Save the new comment to the database.
+      Post.findByIdAndUpdate(
+        post._id,
+        {
+          $inc: { commentsCount: 1 }, // Atomically increment the comments count.
+        },
+        { new: true, runValidators: true }
+      )
+    ]);
 
     return NextResponse.json(
       { success: true, message: "Comment on Post successfully" },
@@ -70,29 +82,58 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
-  const { slug } = params;
-
+  // Fix the common Next.js error by awaiting params
+  const { slug } = await params;
+  
   await dbConnect();
 
   try {
     const post = await Post.findOne({ slug });
-    if (!post)
+    if (!post) {
       return NextResponse.json(
         { success: false, message: "Post not found" },
         { status: 404 }
       );
+    }
 
-    const comments = await Comment.find({ post: post._id, parentComment: null })
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?._id;
+
+    // Fetch all root comments for the post
+    const comments = await Comment.find({ postId: post._id, parentComment: null })
       .populate('authorId', 'username image')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean(); // Use .lean() for better performance as we're adding new properties
 
-      return NextResponse.json({
+    let likesByCurrentUser = [];
+    if (userId) {
+      // If the user is logged in, find all their likes for these comments in a single query
+      const commentIds = comments.map(comment => comment._id);
+      likesByCurrentUser = await Like.find({
+        commentId: { $in: commentIds },
+        authorId: userId,
+      }).lean();
+    }
+
+    // Map over the comments to inject the hasLiked property
+    const commentsWithLikes = comments.map(comment => {
+      const hasLiked = likesByCurrentUser.some(
+        like => like.commentId.toString() === comment._id.toString()
+      );
+      return {
+        ...comment,
+        hasLiked,
+      };
+    });
+
+    return NextResponse.json({
       success: true,
       message: 'Comments retrieved successfully.',
-      data: comments,
+      data: commentsWithLikes,
     }, { status: 200 });
+
   } catch (error) {
-    console.error("Error fetching all comments:", error);
+    console.error("Error fetching comments:", error);
     return NextResponse.json(
       {
         success: false,
