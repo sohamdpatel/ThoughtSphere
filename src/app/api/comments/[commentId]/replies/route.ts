@@ -1,10 +1,12 @@
 import dbConnect from "@/lib/dbConnect";
-import Comment from "@/models/Comment";
 import { NextRequest, NextResponse } from "next/server";
+import Comment from "@/models/Comment";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOption";
 import mongoose from "mongoose";
+import Notification from "@/models/Notification";
 
+// This API handles creating a new comment reply and generates a notification for the parent comment's author.
 export async function POST(
   request: NextRequest,
   { params }: { params: { commentId: string } }
@@ -14,66 +16,107 @@ export async function POST(
 
   const session = await getServerSession(authOptions);
 
-  //   if (!session || !session.user || !session.user._id || !session.user.role) {
-  //     return NextResponse.json(
-  //       {
-  //         success: false,
-  //         message: "Unauthorized: You must be logged in to update a post.",
-  //       },
-  //       { status: 401 }
-  //     );
-  //   }
+  if (!session || !session.user || !session.user._id) {
+    return NextResponse.json(
+      { success: false, message: "Unauthorized: You must be logged in to reply to a comment." },
+      { status: 401 }
+    );
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(commentId)) {
+    return NextResponse.json(
+      { success: false, message: "Invalid Parent Comment ID." },
+      { status: 400 }
+    );
+  }
 
   await dbConnect();
+  const userId = new mongoose.Types.ObjectId(session.user._id);
+  const mongoSession = await mongoose.startSession();
 
   try {
-    const currentUserId = new mongoose.Types.ObjectId(
-      "6889cc0ea392e6c9ad687453"
-    );
-    // TODO add current.user._id
+    const transactionResult = await mongoSession.withTransaction(async () => {
+      // Find the parent comment to ensure it exists and get its details
+      const parentComment = await Comment.findById(commentId, null, { session: mongoSession });
 
-    const parentComment = await Comment.findById(commentId);
-    if (!parentComment)
-      return NextResponse.json(
-        { success: false, message: "Parent comment not found" },
-        { status: 404 }
+      if (!parentComment) {
+        throw new Error("Parent comment not found.");
+      }
+
+      // Create the new reply comment document
+      const newComment = new Comment({
+        postId: parentComment.postId,
+        authorId: userId,
+        comment,
+        parentComment: parentComment._id,
+      });
+
+      // Save the new comment
+      await newComment.save({ session: mongoSession });
+
+      // Atomically increment the reply count on the parent comment
+      await Comment.findByIdAndUpdate(
+        parentComment._id,
+        { $inc: { replyCount: 1 } },
+        { session: mongoSession }
       );
 
-    await Comment.create({
-      postId: parentComment.postId,
-      authorId: currentUserId,
-      comment,
-      parentComment: parentComment._id,
+      // Check if the user is replying to their own comment.
+      // If not, create a notification for the parent comment's author.
+      if (parentComment.authorId.toString() !== userId.toString()) {
+        await Notification.create([{
+          recipientId: parentComment.authorId,
+          senderId: userId,
+          postId: parentComment.postId,
+          commentId: newComment._id, // Associate the notification with the new reply
+          type: 'reply_comment',
+        }], { session: mongoSession });
+      }
+
+      return { success: true, message: "Reply posted successfully", newComment };
     });
 
-    await Comment.findByIdAndUpdate(parentComment, { $inc: { replyCount: 1 } });
-
     return NextResponse.json(
-      { success: true, message: "Comment on Post successfully" },
-      { status: 200 }
+      { success: true, message: transactionResult.message, data: transactionResult.newComment },
+      { status: 201 }
     );
   } catch (error: any) {
-    console.error("error while commenting.", error);
+    console.error("error while creating reply.", error);
+    
+    if (error.message.includes("not found")) {
+      return NextResponse.json({ success: false, message: error.message }, { status: 404 });
+    }
 
     return NextResponse.json(
-      { success: false, message: "Server error while Like" },
+      { success: false, message: "Server error while creating reply." },
       { status: 500 }
     );
+  } finally {
+    mongoSession.endSession();
   }
 }
 
+// This API handles fetching all replies for a given comment.
 export async function GET(
   request: NextRequest,
   { params }: { params: { commentId: string } }
 ) {
   const { commentId } = params;
 
+  if (!mongoose.Types.ObjectId.isValid(commentId)) {
+    return NextResponse.json(
+      { success: false, message: "Invalid Comment ID." },
+      { status: 400 }
+    );
+  }
+
   await dbConnect();
 
   try {
     const commentReplies = await Comment.find({ parentComment: commentId })
       .populate("authorId", "username image")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     return NextResponse.json(
       {

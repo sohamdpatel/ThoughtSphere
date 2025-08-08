@@ -1,10 +1,9 @@
 import dbConnect from "@/lib/dbConnect";
 import Post from "@/models/Post";
-import Like from "@/models/Like";
+import Comment from "@/models/Comment";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOption";
-import mongoose from "mongoose";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,42 +15,42 @@ export async function GET(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized: You must be logged in to view your liked posts." },
+        { success: false, message: "Unauthorized: You must be logged in to view your commented posts." },
         { status: 401 }
       );
     }
     
-    // 1. Find all likes made by the authenticated user
-    const userLikes = await Like.find({ authorId: userId }).lean();
+    // 1. Find all comments made by the authenticated user
+    const userComments = await Comment.find({ authorId: userId }).lean();
 
-    if (userLikes.length === 0) {
+    if (userComments.length === 0) {
       return NextResponse.json({
         success: true,
-        message: "No posts found that you have liked.",
+        message: "No posts found with your comments.",
         data: [],
       }, { status: 200 });
     }
 
-    // 2. Extract unique post IDs from the likes
-    const likedPostIds = [...new Set(userLikes.map(like => like.postId))];
+    // 2. Extract unique post IDs from the comments
+    const commentedPostIds = [...new Set(userComments.map(comment => comment.postId))];
 
-    // 3. Fetch the posts corresponding to those unique IDs
-    const posts = await Post.find({ _id: { $in: likedPostIds } })
+    // 3. Fetch the posts corresponding to those IDs
+    const posts = await Post.find({ _id: { $in: commentedPostIds } })
       .populate('authorId', 'username image')
       .sort({ createdAt: -1 })
       .lean();
 
     return NextResponse.json({
       success: true,
-      message: 'Posts you have liked retrieved successfully.',
+      message: 'Posts with user comments retrieved successfully.',
       data: posts,
     }, { status: 200 });
 
   } catch (error) {
-    console.error('Error fetching liked posts:', error);
+    console.error('Error fetching posts with user comments:', error);
     return NextResponse.json({
       success: false,
-      message: 'Failed to retrieve liked posts.',
+      message: 'Failed to retrieve posts with user comments.',
     }, { status: 500 });
   }
 }

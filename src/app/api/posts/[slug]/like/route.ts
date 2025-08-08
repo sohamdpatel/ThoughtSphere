@@ -1,128 +1,107 @@
 import dbConnect from "@/lib/dbConnect";
 import Post from "@/models/Post";
+import Like from "@/models/Like";
+import Notification from "@/models/Notification";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOption";
 import mongoose from "mongoose";
-import { IPost } from "@/models/Post";
-import Like from "@/models/Like";
 
-export async function POST(
+// This single PUT endpoint handles both liking and unliking a post
+// and creates/deletes a notification within an atomic transaction.
+export async function PUT(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
-  // Await the params object before accessing its properties to avoid the Next.js error
   const { slug } = await params;
-  // const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-  //   if (!session || !session.user || !session.user._id || !session.user.role) {
-  //     return NextResponse.json(
-  //       {
-  //         success: false,
-  //         message: "Unauthorized: You must be logged in to update a post.",
-  //       },
-  //       { status: 401 }
-  //     );
-  //   }
+  // if (!session || !session.user || !session.user._id) {
+  //   return NextResponse.json(
+  //     { success: false, message: "Unauthorized: You must be logged in to like a post." },
+  //     { status: 401 }
+  //   );
+  // }
 
   await dbConnect();
+  const userId = new mongoose.Types.ObjectId("6889cc0ea392e6c9ad687453");
+  const mongoSession = await mongoose.startSession();
 
   try {
-    const post: IPost | null = await Post.findOne({ slug });
+    const transactionResult = await mongoSession.withTransaction(async () => {
+      // Find the post to get its ID and author's ID
+      const post = await Post.findOne({ slug }, null, { session: mongoSession });
+      if (!post) {
+        throw new Error("Post not found.");
+      }
 
-    if (!post) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Post not found.",
-        },
-        { status: 404 }
-      );
+      // Check if the user has already liked the post
+      const existingLike = await Like.findOne({ postId: post._id, authorId: userId }, null, { session: mongoSession });
+
+      let likesCountChange = 0;
+      let hasLiked = false;
+
+      if (existingLike) {
+        // If the like exists, UNLIKE the post
+        await Like.findByIdAndDelete(existingLike._id, { session: mongoSession });
+        likesCountChange = -1;
+        hasLiked = false;
+
+        // Delete the associated notification
+        await Notification.findOneAndDelete({
+          type: 'like_post',
+          senderId: userId,
+          recipientId: post.authorId,
+          postId: post._id,
+        }, { session: mongoSession });
+
+      } else {
+        // If no like exists, LIKE the post
+        await Like.create([{ postId: post._id, authorId: userId }], { session: mongoSession });
+        likesCountChange = 1;
+        hasLiked = true;
+
+        // Check if the user is liking their own post. Don't send a notification if they are.
+        if (post.authorId.toString() !== userId.toString()) {
+          await Notification.create([{
+            recipientId: post.authorId,
+            senderId: userId, 
+            postId: post._id,
+            type: 'like_post',
+          }], { session: mongoSession });
+        }
+      }
+
+      // Atomically update the likes count on the Post document.
+      if (likesCountChange !== 0) {
+        await Post.findByIdAndUpdate(post._id, { $inc: { likes: likesCountChange } }, { session: mongoSession });
+      }
+
+      return { message: hasLiked ? "Post liked successfully." : "Post unliked successfully.", hasLiked };
+    });
+
+    if (transactionResult.message.includes("not found")) {
+      return NextResponse.json({ success: false, message: transactionResult.message }, { status: 404 });
     }
 
-    const currentUserId = new mongoose.Types.ObjectId(
-      "6889cc0ea392e6c9ad687453"
-    );
-    // TODO add current.user._id
+    const updatedPost = await Post.findOne({ slug });
 
-    await Like.create({ postId: post._id, authorId: currentUserId });
-
-    await Post.findByIdAndUpdate(post._id, {
-      $inc: { likesCount: 1 },
-      $push: {
-        latestLikes: {
-          $each: [currentUserId],
-          $position: 0,
-          $slice: 2,
-        },
+    return NextResponse.json(
+      {
+        success: true,
+        message: transactionResult.message,
+        likesCount: updatedPost?.likes || 0,
+        hasLiked: transactionResult.hasLiked,
       },
-    });
-
-    return NextResponse.json(
-      { success: true, message: "Post liked" },
-      { status: 200 }
-    );
-  } catch (error: any) {
-    if (error.code === 11000) {
-      return NextResponse.json(
-        { success: false, message: "Already liked this post" },
-        { status: 400 }
-      );
-    }
-    console.log(error);
-    
-    return NextResponse.json(
-      { success: false, message: "Server error" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { slug: string } }
-) {
-  await dbConnect();
-
-  const slug = await params.slug;
-  const currentUserId = new mongoose.Types.ObjectId("6889cc0ea392e6c9ad687453"); // Replace with session user
-
-  try {
-    const post = await Post.findOne({ slug });
-    if (!post) {
-      return NextResponse.json(
-        { success: false, message: "Post not found" },
-        { status: 404 }
-      );
-    }
-
-    const deleted = await Like.findOneAndDelete({
-      postId: post._id,
-      authorId: currentUserId,
-    });
-
-    if (!deleted) {
-      return NextResponse.json(
-        { success: false, message: "You haven't liked this post" },
-        { status: 400 }
-      );
-    }
-
-    await Post.findByIdAndUpdate(post._id, {
-      $inc: { likesCount: -1 },
-      $pull: { latestLikes: currentUserId },
-    });
-
-    return NextResponse.json(
-      { success: true, message: "Post unliked" },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error unliking post:", error);
+    console.error("Error in post like transaction:", error);
     return NextResponse.json(
-      { success: false, message: "Server error while Unlike Post" },
+      { success: false, message: "An error occurred while toggling like status." },
       { status: 500 }
     );
+  } finally {
+    mongoSession.endSession();
   }
 }
-

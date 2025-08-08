@@ -15,6 +15,8 @@ export async function POST(request: NextRequest) {
   // if send success fulle than return success true and message verification code sent successfully
 
   const { email, username, fullName, password, image } = await request.json();
+  console.log(email, username, fullName, password, image);
+  
 
   try {
     await dbConnect();
@@ -51,7 +53,10 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       } else {
-        const hashedPassword = await bcrypt.hash(password, 12);
+        console.log(password);
+        
+        const hashedPassword = await bcrypt.hash(password, 10);
+        console.log("hased password from signup route alre",hashedPassword);
 
         existingUserByEmail.password = hashedPassword;
         existingUserByEmail.verifyCode = verifyCode;
@@ -59,8 +64,6 @@ export async function POST(request: NextRequest) {
         await existingUserByEmail.save();
       }
     } else {
-      const hashedPassword = await bcrypt.hash(password, 12);
-
       const expiryDate = new Date();
       expiryDate.setHours(expiryDate.getHours() + 1);
 
@@ -68,15 +71,20 @@ export async function POST(request: NextRequest) {
         username,
         fullName,
         email,
-        password: hashedPassword,
+        password,
         image,
         verifyCode,
         verifyCodeExpiry: expiryDate,
         isVerified: false,
       });
 
+      // console.log(newUser);
+      
+
       await newUser.save();
     }
+    
+    
 
     const emailResponse = await sendVerificationEmail({
       email,

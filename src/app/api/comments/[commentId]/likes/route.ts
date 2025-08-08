@@ -5,13 +5,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOption";
 import mongoose from "mongoose";
+import Notification from "@/models/Notification";
 
 // This single PUT endpoint handles both liking and unliking a comment.
+// --- NEW API to Toggle Comment Like with Notifications ---
 export async function PUT(
   request: NextRequest,
   { params }: { params: { commentId: string } }
 ) {
-  const { commentId } = await params;
+  const { commentId } = params;
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user || !session.user._id) {
@@ -30,7 +32,6 @@ export async function PUT(
 
   await dbConnect();
   const userId = new mongoose.Types.ObjectId(session.user._id);
-
   const mongoSession = await mongoose.startSession();
 
   try {
@@ -40,22 +41,41 @@ export async function PUT(
         throw new Error("Comment not found.");
       }
 
-      // We use the new Like model to check for an existing like.
+      // Check if the user has already liked the comment
       const existingLike = await Like.findOne({ commentId, authorId: userId }, null, { session: mongoSession });
 
       let likesCountChange = 0;
       let hasLiked = false;
 
       if (existingLike) {
-        // If it exists, UNLIKE the comment.
+        // If it exists, UNLIKE the comment
         await Like.findByIdAndDelete(existingLike._id, { session: mongoSession });
         likesCountChange = -1;
         hasLiked = false;
+        
+        // Delete the associated notification
+        await Notification.findOneAndDelete({
+          type: 'like_comment',
+          senderId: userId,
+          recipientId: comment.authorId,
+          commentId: comment._id,
+        }, { session: mongoSession });
+
       } else {
-        // If it doesn't exist, LIKE the comment.
+        // If it doesn't exist, LIKE the comment
         await Like.create([{ commentId, authorId: userId }], { session: mongoSession });
         likesCountChange = 1;
         hasLiked = true;
+
+        // Check if the user is liking their own comment. Don't create a notification if so.
+        if (comment.authorId.toString() !== userId.toString()) {
+          await Notification.create([{
+            recipientId: comment.authorId,
+            senderId: userId,
+            commentId: comment._id,
+            type: 'like_comment',
+          }], { session: mongoSession });
+        }
       }
 
       // Atomically update the likes count on the Comment document.

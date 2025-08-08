@@ -1,22 +1,56 @@
 import dbConnect from "@/lib/dbConnect";
 import { getServerSession } from "next-auth";
 import Post from "@/models/Post";
-import { NextResponse } from "next/server";
+import { NextResponse,NextRequest } from "next/server";
 import { authOptions } from "@/lib/authOption";
-
+import mongoose from "mongoose";
+import Like from "@/models/Like";
 // get all post
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await dbConnect();
+    
+    // Get the user session to determine if a user is logged in
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?._id;
+
+    // Fetch all posts. Using .lean() for better performance as we'll be adding a new property.
     const posts = await Post.find({})
-      .populate('authorId', 'username image') // Populate author details needed for public display
-      .sort({ createdAt: -1 }); // Latest posts first
+      .populate('authorId', 'username image') // Populate author details
+      .sort({ createdAt: -1 }) // Latest posts first
+      .lean();
+
+    let likesByCurrentUser: any[] = [];
+    if (userId) {
+      // If the user is logged in, find all their likes for these posts in a single query
+      const postIds = posts.map(post => post._id);
+      likesByCurrentUser = await Like.find({
+        postId: { $in: postIds },
+        authorId: userId,
+      }).lean();
+    }
+
+    // Map over the posts to inject the hasLiked property
+    const postsWithLikes = posts.map(post => {
+      // Safely cast the _id to resolve TypeScript errors from .lean()
+      const postId = post._id as mongoose.Types.ObjectId;
+
+      const hasLiked = likesByCurrentUser.some(
+        like => like.postId?.toString() === postId.toString()
+      );
+      
+      return {
+        ...post,
+        hasLiked,
+      };
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Posts retrieved successfully.',
-      data: posts,
+      data: postsWithLikes,
     }, { status: 200 });
+
   } catch (error) {
     console.error('Error fetching all posts:', error);
     return NextResponse.json({

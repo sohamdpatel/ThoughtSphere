@@ -3,10 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import Comment from "@/models/Comment";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOption";
-import { IPost } from "@/models/Post";
 import Post from "@/models/Post";
 import mongoose from "mongoose";
 import Like from "@/models/Like";
+import Notification from "@/models/Notification";
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { slug: string } }
@@ -16,65 +17,78 @@ export async function POST(
 
   const session = await getServerSession(authOptions);
 
-  //   if (!session || !session.user || !session.user._id || !session.user.role) {
-  //     return NextResponse.json(
-  //       {
-  //         success: false,
-  //         message: "Unauthorized: You must be logged in to update a post.",
-  //       },
-  //       { status: 401 }
-  //     );
-  //   }
+  if (!session || !session.user || !session.user._id) {
+    return NextResponse.json(
+      { success: false, message: "Unauthorized: You must be logged in to comment on a post." },
+      { status: 401 }
+    );
+  }
 
   await dbConnect();
+  const userId = new mongoose.Types.ObjectId(session.user._id);
+
+  // Start a new Mongoose session for the transaction.
+  const mongoSession = await mongoose.startSession();
 
   try {
-    const post = await Post.findOne({ slug });
+    const transactionResult = await mongoSession.withTransaction(async () => {
+      // Find the post to check its existence and get the author's ID.
+      const post = await Post.findOne({ slug }, null, { session: mongoSession });
 
-    if (!post) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Post not found.",
-        },
-        { status: 404 }
+      if (!post) {
+        throw new Error("Post not found.");
+      }
+
+      // Create the new comment document.
+      const newComment = new Comment({
+        postId: post._id,
+        authorId: userId,
+        comment: comment,
+      });
+
+      // Save the new comment.
+      await newComment.save({ session: mongoSession });
+      
+      // Atomically increment the comments count on the post.
+      await Post.findByIdAndUpdate(
+        post._id,
+        { $inc: { commentsCount: 1 } },
+        { session: mongoSession }
       );
+
+      // Check if the user is commenting on their own post.
+      // If not, create a notification for the post's author.
+      if (post.authorId.toString() !== userId.toString()) {
+        await Notification.create([{
+          recipientId: post.authorId,
+          senderId: userId,
+          postId: post._id,
+          type: 'comment_post',
+          commentId: newComment._id, // Associate the notification with the new comment
+        }], { session: mongoSession });
+      }
+
+      return { success: true, message: "Comment on Post successfully", newComment };
+    });
+
+    if (!transactionResult.success) {
+      return NextResponse.json({ success: false, message: transactionResult.message }, { status: 404 });
     }
 
-    const currentUserId = new mongoose.Types.ObjectId(
-      "6889cc0ea392e6c9ad687453"
-    );
-    // TODO add current.user._id
-
-    const newComment = new Comment({
-      postId: post._id,
-      authorId: currentUserId,
-      comment: comment,
-    });
-    
-    // 2. Perform both the comment creation and the post update atomically.
-    await Promise.all([
-      newComment.save(), // Save the new comment to the database.
-      Post.findByIdAndUpdate(
-        post._id,
-        {
-          $inc: { commentsCount: 1 }, // Atomically increment the comments count.
-        },
-        { new: true, runValidators: true }
-      )
-    ]);
-
     return NextResponse.json(
-      { success: true, message: "Comment on Post successfully" },
+      { success: true, message: transactionResult.message, data: transactionResult.newComment },
       { status: 200 }
     );
   } catch (error: any) {
     console.error("error while commenting.", error);
-
+    
     return NextResponse.json(
-      { success: false, message: "Server error while Like" },
+      { success: false, message: "Server error while commenting." },
       { status: 500 }
     );
+  } finally {
+    // End the session regardless of the outcome.
+    mongoSession.endSession();
   }
 }
 
@@ -105,7 +119,7 @@ export async function GET(
       .sort({ createdAt: -1 })
       .lean(); // Use .lean() for better performance as we're adding new properties
 
-    let likesByCurrentUser = [];
+    let likesByCurrentUser: any[] = [];
     if (userId) {
       // If the user is logged in, find all their likes for these comments in a single query
       const commentIds = comments.map(comment => comment._id);
@@ -117,9 +131,14 @@ export async function GET(
 
     // Map over the comments to inject the hasLiked property
     const commentsWithLikes = comments.map(comment => {
+      // The `_id` property from a .lean() query can sometimes be typed as `unknown` by TypeScript.
+      // We safely assert its type here to resolve the  error.
+      const commentId = comment._id as mongoose.Types.ObjectId;
+
       const hasLiked = likesByCurrentUser.some(
-        like => like.commentId.toString() === comment._id.toString()
+        like => like.commentId?.toString() === commentId.toString()
       );
+      
       return {
         ...comment,
         hasLiked,
