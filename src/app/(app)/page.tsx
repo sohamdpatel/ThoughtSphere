@@ -13,9 +13,9 @@ export default function Home() {
   };
   return (
     
-    <div className="flex w-full h-screen overflow-y-auto lg:px-8 gap-16 sm:px-20">
+    <div className="flex w-full h-screen overflow-y-auto lg:px-8 gap-10   ">
   {/* Left scrollable content */}
-  <div className="md:w-2/3 flex flex-col h-fit gap-2 pb-28">
+  <div className="lg:w-2/3 w-full flex flex-col h-fit gap-2 pb-28">
     <PostCard />
     <PostCard />
     <PostCard />
@@ -27,7 +27,7 @@ export default function Home() {
   </div>
 
   {/* Sticky Sidebar */}
-  <div className="md:w-1/3 bg-gray-600  md:sticky md:top-0 h-screen">
+  <div className="lg:w-1/3 w-full bg-gray-600 hidden lg:block lg:sticky lg:top-0 h-screen">
     {/* Sidebar content */}
   </div>
 </div>
