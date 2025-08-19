@@ -11,7 +11,8 @@
     import z from 'zod';
     import Link from 'next/link';
     import { signUpValidation } from '@/schemas/signUpSchema';
-
+    import { Button } from '@/components/ui/StatefulButton';
+import userServices from '@/database-services/user';
     const queryClient = new QueryClient();
 
     interface SignupResponse {
@@ -25,7 +26,7 @@
     const SignupForm = () => {
     const router = useRouter();
     
-    // Initialize useForm with your Zod schema resolver
+    // Initialize useForm with your Zod schema resolver1
     const {
         register,
         handleSubmit,
@@ -54,11 +55,9 @@
             setIsCheckingUsername(true);
             setUsernameMessage('');
             try {
-            const response = await fetch(`/api/users?username=${debouncedUsername}`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-            });
-            const data = await response.json();
+            const data = await userServices.validateUsername(debouncedUsername)
+            console.log(data.message);
+            
             setUsernameMessage(data.message);
             } catch (error: any) {
             console.error("Error checking username:", error);
@@ -94,17 +93,18 @@
         toast.error(error.message);
         },
     });
-    
-    // The handleSubmit function from react-hook-form now validates for us
-    const onSubmit = (data: SignupFormData) => {
-        signupMutation.mutate(data);
-    };
+
+
+     const onSubmit = async (data: SignupFormData) => {
+  return await signupMutation.mutateAsync(data); 
+};
+
 
     return (
         <div className="card w-full max-w-lg bg-base-100 shadow-xl border border-base-300">
         <div className="card-body p-6">
             <h2 className="card-title text-2xl font-bold mb-4 text-center">Create an Account</h2>
-            <form onSubmit={handleSubmit(onSubmit)}>
+            <form>
             <div className="form-control mb-4">
                 <label className="label">
                 <span className="label-text">Username</span>
@@ -181,18 +181,21 @@
                 <p className="text-red-500 text-sm mt-1">{errors.image.message}</p>
                 )}
             </div>
-            <div className="form-control">
-                <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={signupMutation.isPending || isCheckingUsername}
-                >
-                {signupMutation.isPending ? (
-                    <span className="loading loading-spinner"></span>
-                ) : (
-                    'Sign Up'
-                )}
-                </button>
+            <div>
+                <Button
+                    type="button" // prevent default form submit
+                    disabled={signupMutation.isPending || isCheckingUsername}
+                    onClick={async () => {
+                      try {
+                        await handleSubmit(onSubmit)();
+                      } catch (err) {
+                        // let the button animate error
+                        throw err; 
+                      }
+                    }}
+                  >
+                    Sign Up
+                  </Button>
             </div>
             </form>
             <div className="text-center mt-4 text-sm">

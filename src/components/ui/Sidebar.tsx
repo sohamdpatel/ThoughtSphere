@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from "motion/react";
 
 import { IconMenu2, IconX } from "@tabler/icons-react";
 
-import Logo from "./Logo";
+import Link from "next/link";
 
 interface Links {
   label: string;
@@ -59,6 +59,7 @@ export const SidebarProvider = ({
 }) => {
   const [openState, setOpenState] = useState(false);
 
+  // const open = true;
   const open = openProp !== undefined ? openProp : openState;
 
   const setOpen = setOpenProp !== undefined ? setOpenProp : setOpenState;
@@ -152,7 +153,7 @@ export const MobileSidebar = ({
         {...props}
       >
         <div className="flex justify-between items-center z-20 w-full">
-          <Logo open={true} />
+          <Logo opened={true} />
 
           <IconMenu2
             className="text-neutral-800 dark:text-neutral-200"
@@ -231,3 +232,23 @@ export const SidebarLink = ({
     </a>
   );
 };
+
+export function Logo({opened = false}: {opened?: boolean}) {
+  const {open} = useSidebar()
+    return (
+        <Link
+      href="/"
+      className="relative z-20 flex items-center gap-2 space-x-2 py-1 text-sm font-normal text-black"
+    >
+      {/* <div className="h-5 w-6 shrink-0 rounded-tl-lg rounded-tr-sm rounded-br-lg rounded-bl-sm bg-black dark:bg-white" /> */}
+      <img src="/logo-light.png" alt="Logo" className=" h-7 shrink-0 bg-blend-darken"/>
+      <motion.span
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`whitespace-pre font-semibold text-black dark:text-white ${opened ? (opened ? "" : "hidden") : (open ? "" : "hidden")}`}
+      >
+        ThoughtSphere
+      </motion.span>
+    </Link>
+    )
+}

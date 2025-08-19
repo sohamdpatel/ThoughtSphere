@@ -7,6 +7,7 @@ const UsernameQuerySchema = z.object({
   username: usernameValidation,
 });
 
+// Validate username
 export async function GET(request: Request) {
   await dbConnect();
 
@@ -26,8 +27,11 @@ export async function GET(request: Request) {
     }
     
     const {username} = result.data
-
+    console.log(username);
+    
     const existingVerifiedUser = await User.findOne({username, isVerified: true})
+    console.log(existingVerifiedUser);
+    
     if(existingVerifiedUser) return Response.json({success: false, message: `Username ${username} is already taken`}, {status: 400})
 
         return Response.json({

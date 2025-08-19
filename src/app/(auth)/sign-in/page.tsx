@@ -10,6 +10,8 @@ import { zodResolver } from '@hookform/resolvers/zod'; // Import zodResolver
 import z from 'zod'; // Import zod
 import Link from 'next/link';
 import { signInValidation } from '@/schemas/signInSchema';
+import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/StatefulButton';
 // Create a client for React Query.
 const queryClient = new QueryClient();
 
@@ -29,7 +31,7 @@ interface SignInResult {
 
 const SigninForm = () => {
   const router = useRouter();
-
+const [isLocked, setIsLocked] = useState(false);
   // Initialize useForm with your Zod schema resolver
   const {
     register,
@@ -60,18 +62,20 @@ const SigninForm = () => {
       return result as SignInResult;
     },
     onSuccess: () => {
+      setIsLocked(true);
       toast.success('Signed in successfully!');
-      router.replace('/');
     },
     onError: (error) => {
       toast.error(error.message);
+        throw new Error(error.message);
+
     },
   });
 
   // The onSubmit function from react-hook-form now validates for us
-  const onSubmit = (data: SigninFormData) => {
-    signinMutation.mutate(data);
-  };
+ const onSubmit = async (data: SigninFormData) => {
+  return await signinMutation.mutateAsync(data); 
+};
 
   return (
     <div className="card w-full max-w-lg bg-base-100 shadow-xl border border-base-300">
@@ -107,17 +111,26 @@ const SigninForm = () => {
             )}
           </div>
           <div className="form-control">
-            <button type="submit" className="btn btn-primary" disabled={signinMutation.isPending}>
-              {signinMutation.isPending ? (
-                <span className="loading loading-spinner"></span>
-              ) : (
-                'Sign In'
-              )}
-            </button>
+            <Button
+    type="button" // prevent default form submit
+    disabled={signinMutation.isPending || isLocked}
+    onClick={async () => {
+      try {
+        const valid = await handleSubmit(onSubmit)(); // validate & submit
+        // if mutation is successful
+        router.replace("/");
+      } catch (err) {
+        // let the button animate error
+        throw err; 
+      }
+    }}
+  >
+    Sign In
+  </Button>
           </div>
         </form>
         <div className="text-center mt-4 text-sm">
-          Don't have an account? <Link href="/signup" className="link link-hover text-primary">Sign Up</Link>
+          Don't have an account? <Link href="/sign-up" className="link link-hover text-primary">Sign Up</Link>
         </div>
       </div>
     </div>

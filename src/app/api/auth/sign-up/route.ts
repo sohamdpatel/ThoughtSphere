@@ -40,8 +40,9 @@ export async function POST(request: NextRequest) {
 
     const existingUserByEmail = await User.findOne({
       email,
-      isVerified: true,
     });
+    console.log( "existingUserByEmail",existingUserByEmail);
+    
 
     if (existingUserByEmail) {
       if (existingUserByEmail.isVerified) {
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
     
     
 
-    const emailResponse = await sendVerificationEmail({
+    const emailResponse = await sendVerificationEmail({ 
       email,
       username,
       verifyCode,
