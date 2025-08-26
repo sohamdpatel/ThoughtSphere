@@ -7,6 +7,7 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import Profile from "./ui/Profile";
+import { signOut } from "next-auth/react";
 
 
 export default function SideBarMain() {
@@ -46,17 +47,22 @@ export default function SideBarMain() {
   ];
 
 
+  
+
   return (
     <Sidebar>
       <SidebarBody className="justify-between gap-10 border-r">
         <div className="flex flex-1 flex-col pt-3 overflow-x-hidden overflow-y-auto">
           <Logo />
-
+          {/* <button onClick={handleSignOut}>
+            sign out
+          </button> */}
           <div className="mt-8 flex flex-col gap-2">
             {links.map((link, idx) => (
               <SidebarLink key={idx} link={link} />
             ))}
           </div>
+          
         </div>
             
         <div>     

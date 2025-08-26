@@ -6,7 +6,7 @@ export interface IUser {
   username: string;
   fullName: string;
   email: string;
-  image: string;
+  image: string;  
   password: string;
   role: "user" | "admin";
   verifyCode: string;

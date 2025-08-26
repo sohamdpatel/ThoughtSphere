@@ -2,9 +2,10 @@ import dbConnect from "@/lib/dbConnect";
 import Post from "@/models/Post";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOption";
 import mongoose from "mongoose";
 import slugify from "slugify";
+import Like from "@/models/Like";
+import { authOptions } from "@/lib/authOption";
 
 // get single post by id
 export async function GET(
@@ -12,14 +13,21 @@ export async function GET(
   { params }: { params: { slug: string } }
 ) {
   const { slug } = params;
+  let hasLiked = false;
 
   try {
     await dbConnect();
-    const post = await Post.find({ slug }).populate(
+
+    // Fetch the user session to get the user ID
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?._id;
+
+    // Use findOne to get a single post, which is more efficient
+    const post = await Post.findOne({ slug }).populate(
       "authorId",
       "username image"
     );
-
+    
     if (!post) {
       return NextResponse.json(
         {
@@ -29,15 +37,40 @@ export async function GET(
         { status: 404 }
       );
     }
+    console.log("userId", session);
+    
+    // Check if the user is logged in
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      // Find a like document for this specific post and user
+      console.log("before liked post");
+      const likedPost = await Like.findOne({
+        postId: post._id,
+        authorId: new mongoose.Types.ObjectId(userId),
+      });
+      console.log("liked post", likedPost);
+      
+      // Set the hasLiked flag based on the query result
+      if (likedPost) {
+        hasLiked = true;
+      }
+    }
+    
+    // Prepare the final response object with the hasLiked status
+    const postData = post.toObject();
+    const responseData = {
+        ...postData,
+        hasLiked: hasLiked
+    };
 
     return NextResponse.json(
       {
         success: true,
-        message: "Get post successfully",
-        data: post,
+        message: "Post fetched successfully",
+        data: responseData,
       },
       { status: 200 }
     );
+
   } catch (error) {
     console.error("An error occurred while fetching post:", error);
     return NextResponse.json(
@@ -49,7 +82,7 @@ export async function GET(
     );
   }
 }
-
+ 
 // update post
 export async function PUT(
   request: NextRequest,

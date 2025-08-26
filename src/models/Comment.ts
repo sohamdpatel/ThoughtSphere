@@ -1,16 +1,23 @@
 import mongoose, { Schema } from "mongoose";
 
-export interface Icomment {
+export interface ICommentAuthor {
+  _id: mongoose.Types.ObjectId,
+    username: string;
+    image: string;
+}
+
+export interface IComment {
   _id?: mongoose.Types.ObjectId;
-  postId: string;
-  authorId: string;
+  postId: mongoose.Types.ObjectId;
+  authorId: mongoose.Types.ObjectId | ICommentAuthor;
   comment: string;
   likes?: number;
-  replies?: [mongoose.Types.ObjectId];
+  parentComment?: mongoose.Types.ObjectId;
+  replyCount: number;
   createdAt?: Date;
 }
 
-const commentSchema = new Schema({
+const commentSchema = new Schema<IComment>({
   postId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Post",
@@ -40,7 +47,7 @@ commentSchema.index({ parentComment: 1 });
 
 const Comment =
   mongoose.models?.Comment ||
-  mongoose.model<Icomment>("Comment", commentSchema);
+  mongoose.model<IComment>("Comment", commentSchema);
 
 export default Comment;
 

@@ -94,7 +94,7 @@ export async function POST(
   } finally {
     mongoSession.endSession();
   }
-}
+}  
 
 // This API handles fetching all replies for a given comment.
 export async function GET(

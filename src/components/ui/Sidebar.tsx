@@ -107,9 +107,7 @@ export const SidebarBody = (props: React.ComponentProps<typeof motion.div>) => {
 
 export const DesktopSidebar = ({
   className,
-
   children,
-
   ...props
 }: React.ComponentProps<typeof motion.div>) => {
   const { open, setOpen, animate } = useSidebar();
@@ -119,7 +117,6 @@ export const DesktopSidebar = ({
       <motion.div
         className={cn(
           "h-full px-5 py-4 hidden  min-h-screen  md:flex md:flex-col bg-neutral-100 dark:bg-neutral-800 w-[70px] shrink-0",
-
           className
         )}
         animate={{
@@ -241,7 +238,7 @@ export function Logo({opened = false}: {opened?: boolean}) {
       className="relative z-20 flex items-center gap-2 space-x-2 py-1 text-sm font-normal text-black"
     >
       {/* <div className="h-5 w-6 shrink-0 rounded-tl-lg rounded-tr-sm rounded-br-lg rounded-bl-sm bg-black dark:bg-white" /> */}
-      <img src="/logo-light.png" alt="Logo" className=" h-7 shrink-0 bg-blend-darken"/>
+      <img src="/logo-light.png" alt="Logo" className=" h-7 shrink-0 bg-blend-darken text-[#f3f4f6]"/>
       <motion.span
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

@@ -9,54 +9,75 @@ import Like from "@/models/Like";
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
-    
-    // Get the user session to determine if a user is logged in
+
+    // Get user session
     const session = await getServerSession(authOptions);
     const userId = session?.user?._id;
 
-    // Fetch all posts. Using .lean() for better performance as we'll be adding a new property.
-    const posts = await Post.find({})
-      .populate('authorId', 'username image') // Populate author details
-      .sort({ createdAt: -1 }) // Latest posts first
+    // Get search params
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get("limit") || "5", 10);
+    const cursor = searchParams.get("cursor"); // post _id for pagination
+
+    // Build query
+    const query: any = {};
+    if (cursor) {
+      query._id = { $lt: new mongoose.Types.ObjectId(cursor) };
+    }
+
+    // Fetch posts with pagination
+    const posts = await Post.find(query)
+      .populate("authorId", "username image")
+      .sort({ _id: -1 }) // newest first
+      .limit(limit)
       .lean();
 
+    // Find likes by current user
     let likesByCurrentUser: any[] = [];
     if (userId) {
-      // If the user is logged in, find all their likes for these posts in a single query
-      const postIds = posts.map(post => post._id);
+      const postIds = posts.map((post) => post._id);
       likesByCurrentUser = await Like.find({
         postId: { $in: postIds },
         authorId: userId,
       }).lean();
     }
 
-    // Map over the posts to inject the hasLiked property
-    const postsWithLikes = posts.map(post => {
-      // Safely cast the _id to resolve TypeScript errors from .lean()
+    // Inject hasLiked into posts
+    const postsWithLikes = posts.map((post) => {
       const postId = post._id as mongoose.Types.ObjectId;
-
       const hasLiked = likesByCurrentUser.some(
-        like => like.postId?.toString() === postId.toString()
+        (like) => like.postId?.toString() === postId.toString()
       );
-      
+
       return {
         ...post,
         hasLiked,
       };
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Posts retrieved successfully.',
-      data: postsWithLikes,
-    }, { status: 200 });
+    // Set nextCursor if there are more posts
+    const nextCursor =
+  posts.length > 0 ? (posts[posts.length - 1]._id as mongoose.Types.ObjectId).toString() : null;
 
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Posts retrieved successfully.",
+        data: postsWithLikes,
+        nextCursor,
+      },
+      { status: 200 }
+    );
   } catch (error) {
-    console.error('Error fetching all posts:', error);
-    return NextResponse.json({
-      success: false,
-      message: 'Failed to retrieve posts.',
-    }, { status: 500 });
+    console.error("Error fetching posts:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to retrieve posts.",
+      },
+      { status: 500 }
+    );
   }
 }
 

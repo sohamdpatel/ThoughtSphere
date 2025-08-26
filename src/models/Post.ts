@@ -1,22 +1,29 @@
 import mongoose, { Schema } from "mongoose";
 import slugify from "slugify";
+import { IUser } from "./User";
+
+export interface IPostAuthor {
+  _id: mongoose.Types.ObjectId,
+  username: string;
+  image: string;
+}
 
 export interface IPost {
   _id?: mongoose.Types.ObjectId;
-  authorId: mongoose.Types.ObjectId;
+  authorId: mongoose.Types.ObjectId | IPostAuthor;
   title: string;
   content: string;
   slug: string;
   tags: string[];
   fileLink?: string;
+  hasLiked?: boolean;
   likesCount?: number;
   commentsCount?: number;
-  latestLikes?: [mongoose.Types.ObjectId];
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-const postSchema = new Schema(
+const postSchema = new Schema<IPost>(
   {
     authorId: {
       type: Schema.Types.ObjectId,
@@ -41,7 +48,6 @@ const postSchema = new Schema(
     tags: [String],
     fileLink: {
       type: String,
-      required: true,
     },
     likesCount: {
       type: Number,
@@ -51,10 +57,6 @@ const postSchema = new Schema(
       type: Number,
       default: 0,
     },
-    latestLikes: [{
-      type: Schema.Types.ObjectId,
-      ref: "Like",
-    }],
   },
   { timestamps: true }
 );

@@ -16,15 +16,17 @@ export async function PUT(
   const { slug } = await params;
   const session = await getServerSession(authOptions);
 
-  // if (!session || !session.user || !session.user._id) {
-  //   return NextResponse.json(
-  //     { success: false, message: "Unauthorized: You must be logged in to like a post." },
-  //     { status: 401 }
-  //   );
-  // }
+  if (!session || !session.user || !session.user._id) {
+    return NextResponse.json(
+      { success: false, message: "Unauthorized: You must be logged in to like a post." },
+      { status: 401 }
+    );
+  }
 
   await dbConnect();
-  const userId = new mongoose.Types.ObjectId("6889cc0ea392e6c9ad687453");
+  const userId = new mongoose.Types.ObjectId(session?.user?._id);
+  console.log(userId,session.user);
+  
   const mongoSession = await mongoose.startSession();
 
   try {
@@ -57,7 +59,12 @@ export async function PUT(
 
       } else {
         // If no like exists, LIKE the post
-        await Like.create([{ postId: post._id, authorId: userId }], { session: mongoSession });
+        console.log("befor like");
+        
+        const likeDone = await Like.create([{ postId: post._id, authorId: userId }], { session: mongoSession });
+
+        console.log("after like", likeDone);
+        
         likesCountChange = 1;
         hasLiked = true;
 
@@ -74,7 +81,11 @@ export async function PUT(
 
       // Atomically update the likes count on the Post document.
       if (likesCountChange !== 0) {
-        await Post.findByIdAndUpdate(post._id, { $inc: { likes: likesCountChange } }, { session: mongoSession });
+        console.log("above updated post");
+        
+        const updated = await Post.findByIdAndUpdate(post._id, { $inc: { likesCount: likesCountChange } }, { session: mongoSession });
+        console.log(updated);
+        
       }
 
       return { message: hasLiked ? "Post liked successfully." : "Post unliked successfully.", hasLiked };
