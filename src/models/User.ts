@@ -1,20 +1,8 @@
+import { IUser } from "@/app/types/user";
 import bcrypt from "bcryptjs";
 import mongoose, { Schema } from "mongoose";
 
-export interface IUser {
-  _id?: mongoose.Types.ObjectId;
-  username: string;
-  fullName: string;
-  email: string;
-  image: string;  
-  password: string;
-  role: "user" | "admin";
-  verifyCode: string;
-  verifyCodeExpiry: Date;
-  isVerified: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
+
 
 const userSchema = new Schema<IUser>(
   {

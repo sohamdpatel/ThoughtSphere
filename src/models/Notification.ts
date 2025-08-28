@@ -1,24 +1,17 @@
+import { INotification } from "@/app/types/Notification";
 import mongoose, { Schema } from "mongoose";
 
-export interface INotification extends Document {
-  recipientId: mongoose.Types.ObjectId;
-  senderId: mongoose.Types.ObjectId;
-  postId?: mongoose.Types.ObjectId;
-  commentId?: mongoose.Types.ObjectId;
-  type: 'like_post' | 'comment_post' | 'reply_comment' | 'like_comment';
-  read: boolean;
-  createdAt: Date;
-}
+
 
 const notificationSchema = new Schema<INotification>({
   recipientId: {
     type: Schema.Types.ObjectId,
     ref: "User",
-    required: true,
+    required: true, 
   },
   senderId: {
     type: Schema.Types.ObjectId,
-    ref: "User",
+    ref: "User", 
     required: true,
   },
   postId: {
@@ -47,3 +40,4 @@ const notificationSchema = new Schema<INotification>({
 const Notification = mongoose.models.Notification || mongoose.model<INotification>("Notification", notificationSchema);
 
 export default Notification;
+ 

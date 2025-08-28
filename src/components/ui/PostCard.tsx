@@ -14,6 +14,7 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import postServices from "@/database-services/post";
 import { useDebounceCallback } from "usehooks-ts";
+import { usePostLikes } from "@/hooks/post-hooks/usePostLikes";
 export default function PostCard({ data }: { data: IPost }) {
   // console.log("data from postcad", data);
   
@@ -21,53 +22,8 @@ export default function PostCard({ data }: { data: IPost }) {
   // console.log("data from author", author);
   const { data: session, status } = useSession();
    // State for optimistic UI and animation
-  const [isLiked, setIsLiked] = useState(data.hasLiked);
-  const [likesCount, setLikesCount] = useState(data.likesCount || 0);
-  const [isLiking, setIsLiking] = useState(false);
+  const { data: likes, toggleLike } = usePostLikes(data.slug,!!session);
 
-  const handleLikeClick = async (e: React.MouseEvent) => {
-    e.preventDefault();
-
-    if (status !== 'authenticated') {
-      window.location.href = '/sign-in';
-      return;
-    }
-
-    if (isLiking) {
-      return; // Prevent multiple clicks
-    }
-
-    // Optimistic UI update
-    const previousIsLiked = isLiked;
-    const previousLikesCount = likesCount;
-
-    setIsLiked(!previousIsLiked);
-    setLikesCount(previousIsLiked ? previousLikesCount - 1 : previousLikesCount + 1);
-    setIsLiking(true);
-
-    try {
-      const response = await postServices.toggleLike({slug: data?.slug})
-      // const response = await fetch(`/api/posts/${data._id}/like`, {
-      //   method: "POST",
-      // });
-
-      if (!response.ok) {
-        throw new Error("Failed to like/unlike the post.");
-      }
-
-      const result = await response.json();
-      console.log(result.message);
-    } catch (error) {
-      console.error(error);
-      // Revert the UI on failure
-      setIsLiked(previousIsLiked);
-      setLikesCount(previousLikesCount);
-    } finally {
-      setIsLiking(false);
-    }
-  };
-
-  const debouncedLikeHandler = useDebounceCallback(handleLikeClick, 500);
   return (
     <div
       key={data._id?.toString()}
@@ -139,16 +95,15 @@ export default function PostCard({ data }: { data: IPost }) {
       <div className=" flex justify-between p-3">
         <div className=" flex gap-2">
           <button
-            onClick={debouncedLikeHandler}
-            disabled={isLiking || status === 'loading'}
-            className={`flex gap-2 items-center hover:bg-[#767676] rounded-xl px-3 py-2 transition-transform duration-200 ${isLiked ? 'text-red-500' : ''}`}
+            onClick={toggleLike}
+            className={`flex gap-2 items-center hover:bg-[#767676] rounded-xl px-3 py-2 transition-transform duration-200`}
           >
-            {isLiked ? (
-              <IconHeartFilled className="h-6 w-6 animate-heart-pop" />
+            {likes?.hasLiked ? (
+              <IconHeartFilled className="h-6 w-6 animate-heart-pop text-red-600" />
             ) : (
               <IconHeart className="h-6 w-6" />
             )}
-            <h4 className="text-sm">{likesCount}</h4>
+            <h4 className="text-sm">{likes?.likesCount}</h4>
           </button>
           <div className=" flex gap-2 items-center hover:bg-[#767676] rounded-xl px-3 py-2">
             <IconMessageCircle className=" h-6 w-6" />

@@ -1,27 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import slugify from "slugify";
-import { IUser } from "./User";
+import { IPost } from "@/app/types/post";
 
-export interface IPostAuthor {
-  _id: mongoose.Types.ObjectId,
-  username: string;
-  image: string;
-}
-
-export interface IPost {
-  _id?: mongoose.Types.ObjectId;
-  authorId: mongoose.Types.ObjectId | IPostAuthor;
-  title: string;
-  content: string;
-  slug: string;
-  tags: string[];
-  fileLink?: string;
-  hasLiked?: boolean;
-  likesCount?: number;
-  commentsCount?: number;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
 
 const postSchema = new Schema<IPost>(
   {

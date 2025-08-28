@@ -1,5 +1,5 @@
 import dbConnect from "@/lib/dbConnect";
-import Post from "@/models/Post";
+import Post, { IPost } from "@/models/Post";
 import Like from "@/models/Like";
 import Notification from "@/models/Notification";
 import { NextRequest, NextResponse } from "next/server";
@@ -24,8 +24,8 @@ export async function PUT(
   }
 
   await dbConnect();
-  const userId = new mongoose.Types.ObjectId(session?.user?._id);
-  console.log(userId,session.user);
+  const authorId = new mongoose.Types.ObjectId(session?.user?._id);
+  // console.log(authorId,session.user);
   
   const mongoSession = await mongoose.startSession();
 
@@ -38,7 +38,7 @@ export async function PUT(
       }
 
       // Check if the user has already liked the post
-      const existingLike = await Like.findOne({ postId: post._id, authorId: userId }, null, { session: mongoSession });
+      const existingLike = await Like.findOne({ postId: post._id, authorId }, null, { session: mongoSession });
 
       let likesCountChange = 0;
       let hasLiked = false;
@@ -52,7 +52,7 @@ export async function PUT(
         // Delete the associated notification
         await Notification.findOneAndDelete({
           type: 'like_post',
-          senderId: userId,
+          senderId: authorId,
           recipientId: post.authorId,
           postId: post._id,
         }, { session: mongoSession });
@@ -61,7 +61,7 @@ export async function PUT(
         // If no like exists, LIKE the post
         console.log("befor like");
         
-        const likeDone = await Like.create([{ postId: post._id, authorId: userId }], { session: mongoSession });
+        const likeDone = await Like.create([{ postId: post._id, authorId }], { session: mongoSession });
 
         console.log("after like", likeDone);
         
@@ -69,10 +69,10 @@ export async function PUT(
         hasLiked = true;
 
         // Check if the user is liking their own post. Don't send a notification if they are.
-        if (post.authorId.toString() !== userId.toString()) {
+        if (post.authorId.toString() !== authorId.toString()) {
           await Notification.create([{
             recipientId: post.authorId,
-            senderId: userId, 
+            senderId: authorId, 
             postId: post._id,
             type: 'like_post',
           }], { session: mongoSession });
@@ -115,4 +115,35 @@ export async function PUT(
   } finally {
     mongoSession.endSession();
   }
+}
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { slug: string } }
+) {
+  const {slug} = await params
+  await dbConnect();
+  const session = await getServerSession(authOptions);
+
+  // Use type assertion - this is the cleanest approach
+  const post = await Post.findOne({ slug }).lean() as IPost | null;
+  
+  if (!post) {
+    return NextResponse.json({ success: false, message: "Post not found" }, { status: 404 });
+  }
+
+  let hasLiked = false;
+  if (session?.user?._id) {
+    const existing = await Like.findOne({
+      postId: post._id,
+      authorId: session.user._id,
+    }).lean();
+    hasLiked = !!existing;
+  }
+
+  return NextResponse.json({
+    success: true,
+    likesCount: post.likesCount || 0,
+    hasLiked,
+  });
 }

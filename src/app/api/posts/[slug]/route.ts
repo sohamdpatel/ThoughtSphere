@@ -6,6 +6,8 @@ import mongoose from "mongoose";
 import slugify from "slugify";
 import Like from "@/models/Like";
 import { authOptions } from "@/lib/authOption";
+import { Update } from "next/dist/build/swc/types";
+import { MutatePost } from "@/app/types/post";
 
 // get single post by id
 export async function GET(
@@ -92,32 +94,26 @@ export async function PUT(
 
   const session = await getServerSession(authOptions);
 
-  // if (!session || !session.user || !session.user._id || !session.user.role) {
-  //   return NextResponse.json(
-  //     {
-  //       success: false,
-  //       message: "Unauthorized: You must be logged in to update a post.",
-  //     },
-  //     { status: 401 }
-  //   );
-  // }
+  if (!session || !session.user || !session.user._id || !session.user.role) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Unauthorized: You must be logged in to update a post.",
+      },
+      { status: 401 }
+    );
+  }
 
   await dbConnect();
 
   try {
-    const { title, content, tags, image } = await request.json();
+    const { title, content, tags, fileLink }: Partial<MutatePost> = await request.json();
 
-    const updateFields: {
-      title?: string;
-      content?: string;
-      tags?: string[];
-      image?: string;
-      slug?: string;
-    } = {};
+    const updateFields: Partial<MutatePost> = {};
     if (title !== undefined) updateFields.title = title;
     if (content !== undefined) updateFields.content = content;
     if (tags !== undefined) updateFields.tags = tags;
-    if (image !== undefined) updateFields.image = image;
+    if (fileLink !== undefined) updateFields.fileLink = fileLink;
 
     if (Object.keys(updateFields).length === 0) {
       return NextResponse.json(
@@ -141,8 +137,8 @@ export async function PUT(
       );
     }
 
-    const currentUserId = "6889cc0ea392e6c9ad687453";
-    // const currentUserId = session.user._id;
+    // const currentUserId = "6889cc0ea392e6c9ad687453";
+    const currentUserId = session.user._id;
     // const currentUserRole = session.user.role;
 
     const isAuthor = post.authorId.equals(

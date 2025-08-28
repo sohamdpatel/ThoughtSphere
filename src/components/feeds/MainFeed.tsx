@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import PostCard from "./ui/PostCard";
-import { IPost } from "@/models/Post";
+import PostCard from "../ui/PostCard";
 import mongoose from "mongoose";
-import PostCardSkeleton from "./ui/PostCardSkeleton";
+import PostCardSkeleton from "../ui/PostCardSkeleton";
 import postServices from "@/database-services/post";
+import { IPost } from "@/app/types/post";
 
 export default function MainFeed() {
   const [posts, setPosts] = useState<IPost[]>([]);

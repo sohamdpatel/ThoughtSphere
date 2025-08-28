@@ -1,3 +1,4 @@
+import { MutatePost } from "@/app/types/post";
 
 
 export class PostServices {
@@ -15,7 +16,7 @@ export class PostServices {
        }
     }
 
-    async addPost({ title, content, tags, fileLink }: { title: string, content: string, tags: string, fileLink: string }) {
+    async addPost({ title, content, tags, fileLink }: Partial<MutatePost>) {
         try {
          const response = await fetch(`/api/posts`, {
                  method: 'POST',
@@ -46,7 +47,7 @@ export class PostServices {
        }
     }
 
-    async updatePost({ slug, title, content, tags, fileLink }: { slug: string, title: string, content: string, tags: string, fileLink: string }){
+    async updatePost({ slug, title, content, tags, fileLink }: MutatePost){
         try {
          const response = await fetch(`/api/posts/${slug}`, {
                  method: 'PUT',

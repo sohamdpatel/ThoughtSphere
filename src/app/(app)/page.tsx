@@ -1,15 +1,13 @@
-
+// 'use client'
 // import toast from "react-hot-toast";
 // import { IPost } from "@/models/Post";
 // import MiniPostCard from "@/components/MiniPostCard";
 import { IconTrendingUp } from "@tabler/icons-react";
-import MainFeed from "@/components/MainFeed";
-import { Suspense, useState } from "react";
+import MainFeed from "@/components/feeds/MainFeed";
+import { Suspense } from "react";
 import PostCardSkeleton from "@/components/ui/PostCardSkeleton";
-import RecentPostFeed from "@/components/RecentPostFeed";
+import RecentPostFeed from "@/components/feeds/RecentPostFeed";
 import MiniPostCardSkeleton from "@/components/ui/MiniPostCardSkeleton";
-import Modal from "@/components/ui/Modal";
-import { signOut } from "next-auth/react";
 
 export default function Home() {
   // const handleSignOut = async () => {
@@ -50,7 +48,7 @@ export default function Home() {
 
           <div className="pr-1 w-full flex justify-end">
             <h2 className="w-fit hover:text-[#cb4de1] text">See more</h2>
-            <button onClick={() => signOut()}>Sign Out</button>
+            {/* <button onClick={() => signOut()}>Sign Out</button> */}
           </div>
         </div>
       </div>

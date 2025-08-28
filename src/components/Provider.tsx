@@ -1,10 +1,11 @@
 "use client";
 
 import { SessionProvider } from "next-auth/react";
-import { NotificationProvider } from "./NotificationToaster";
 import { ImageKitProvider } from "@imagekit/next";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const urlEndpoint = process.env.NEXT_PUBLIC_URL_ENDPOINT!;
 const publicKey = process.env.NEXT_PUBLIC_PUBLIC_KEY!;
+const queryClient = new QueryClient();
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const authenticator = async () => {
@@ -21,13 +22,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider refetchInterval={5 * 60}>
-      <NotificationProvider>
+    <QueryClientProvider client={queryClient}>
         <ImageKitProvider
           urlEndpoint={urlEndpoint}
         >
           {children}
         </ImageKitProvider>
-      </NotificationProvider>
+      </QueryClientProvider>
     </SessionProvider>
   );
 }
